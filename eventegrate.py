@@ -7,14 +7,14 @@ from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
-# If modifying these scopes, delete the file token.pickle.
+# If modifying these scopes, or if you want to re-authenticate as a different user,
+# delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 def build_creds():
     creds = None
     # The file token.pickle stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first
-    # time.
+    # created automatically when the authorization flow completes for the first time.
     if os.path.exists('token.pickle'):
         with open('token.pickle', 'rb') as token:
             creds = pickle.load(token)
@@ -37,21 +37,17 @@ def iterate_calendars(service, email):
     while True:
         calendar_list = service.calendarList().list(minAccessRole='owner', pageToken=page_token).execute()
         for calendar_list_entry in calendar_list['items']:
-            print("Calendar:", calendar_list_entry['summary'])
-            share_calendar(service, calendar_list_entry['id'], email)
+            share_calendar(service, calendar_list_entry['summary'],
+                    calendar_list_entry['id'], email)
         page_token = calendar_list.get('nextPageToken')
         if not page_token:
             break
 
-def share_calendar(service, id, email):
-    print('Checking current acls for %s:' % id)
+def share_calendar(service, calendar_name, id, email):
     acls = service.acl().list(calendarId=id).execute()
     exists = any(filter(lambda r: r['id'] == 'user:' + email, acls['items']))
     if exists:
-        print("User already has access!")
         return
-    else:
-        print("Sharing to user: ")
 
     new_rule = {
         'scope': {
@@ -62,7 +58,7 @@ def share_calendar(service, id, email):
     }
 
     created_rule = service.acl().insert(calendarId=id, body=new_rule).execute()
-    print("Created rule:", created_rule['id'])
+    print("Shared %s to %s creating rule %s" % (calendar_name, email, created_rule['id']))
 
 def main():
     """Experimental tool to see if we can automatically share calendars.
@@ -70,7 +66,7 @@ def main():
     service = build_creds()
 
     # Call the Calendar API
-    email_to_share_to = 'dfitch@wisc.edu'
+    email_to_share_to = 'spescitelli@wisc.edu'
     iterate_calendars(service, email_to_share_to)
 
 
